@@ -1,0 +1,57 @@
+# Byte-compiled / optimized / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+sdist/
+wheels/
+share/python-wheels/
+MANIFEST
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.*
+
+# Testing / coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checkers and linters
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# Sphinx documentation
+docs/_build/
+
+# UV / Poetry / pipenv lock artifacts (uncomment if used)
+# poetry.lock
+# Pipfile.lock
+# uv.lock

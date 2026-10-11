@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agentic-tool — config editor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>agentic-tool</h1>
+  <div class="toolbar">
+    <button id="btn-new">New</button>
+    <button id="btn-open">Open…</button>
+    <button id="btn-save" class="primary">Save</button>
+    <button id="btn-preview">Preview</button>
+    <button id="btn-connectors">MCP Connectors</button>
+    <span class="toolbar-sep" aria-hidden="true"></span>
+    <button id="btn-run-start" disabled title="Only available on the Execute tab">▶ Play</button>
+    <button id="btn-run-stop" class="danger" disabled title="Only available on the Execute tab">■ Stop</button>
+    <span id="file-label" class="file-label" title="Current config file">Untitled</span>
+  </div>
+  <div id="status" class="status"></div>
+</header>
+
+<main>
+  <section id="editor">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" id="tab-btn-settings" role="tab" aria-selected="true" aria-controls="tab-settings">Settings</button>
+      <button class="tab" id="tab-btn-tasks" role="tab" aria-selected="false" aria-controls="tab-tasks">Tasks</button>
+      <button class="tab" id="tab-btn-execute" role="tab" aria-selected="false" aria-controls="tab-execute">Execute</button>
+    </nav>
+
+    <div id="tab-settings" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-settings">
+      <div class="row2">
+        <section class="card">
+          <h2>Project</h2>
+          <div class="grid2">
+            <label>Name <input id="f-name" type="text"></label>
+            <label>Version <input id="f-version" type="text"></label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>MCP servers <button id="btn-add-mcp" class="small">+ Add</button></h2>
+          <p class="hint">Each entry must be a running MCP server reachable over Streamable HTTP.</p>
+          <div id="mcp-list"></div>
+        </section>
+      </div>
+
+      <div class="row2">
+        <section class="card">
+          <h2>LLM</h2>
+          <label>OpenAI-compatible server URL <input id="f-url" type="text" placeholder="http://localhost:8080/v1"></label>
+          <label>Model <input id="f-model" type="text"></label>
+          <div class="grid2">
+            <label>API key <input id="f-apikey" type="text" placeholder="not-needed"></label>
+            <label>Max tool result length <input id="f-maxlen" type="number" min="1" step="1"></label>
+          </div>
+          <label class="check"><input id="f-stream" type="checkbox"> Stream responses</label>
+        </section>
+
+        <section class="card">
+          <h2>System message</h2>
+          <textarea id="f-system" rows="12" placeholder="Optional — leave empty to use the built-in default"></textarea>
+        </section>
+      </div>
+    </div>
+
+    <div id="tab-tasks" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-tasks">
+      <div class="tasks-layout">
+        <aside class="card task-side">
+          <div class="task-toolbar">
+            <button id="btn-add-task" class="small" title="Append a new task">+ Add</button>
+            <button id="btn-remove-task" class="small danger" title="Remove the selected task">Remove selected</button>
+          </div>
+          <ol id="task-list" aria-label="Task sequence"></ol>
+        </aside>
+        <section class="card task-editor">
+          <div class="task-editor-head">
+            <h2 id="task-editor-title">Selected task</h2>
+            <div class="task-controls">
+              <button id="btn-move-up" class="small" title="Move earlier in sequence">↑</button>
+              <button id="btn-move-down" class="small" title="Move later in sequence">↓</button>
+              <button id="btn-dup-task" class="small" title="Duplicate the selected task">Duplicate</button>
+            </div>
+          </div>
+          <label>Name <input id="task-name" type="text"></label>
+          <div class="field-label">Prompt</div>
+          <textarea id="task-prompt" rows="12"></textarea>
+          <div class="task-editor-tools">
+            <span class="hint">Enabled MCP servers:</span>
+            <div id="task-tools" class="task-tools"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="tab-execute" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-execute">
+      <section class="card">
+        <h2>Run output <button id="btn-run-clear" class="small">Clear</button></h2>
+        <p class="hint" id="run-hint">Runs <code>./.venv/bin/python agentic-tool.py --file &lt;active config&gt;</code> from the project root.</p>
+        <textarea id="run-output" rows="24" readonly spellcheck="false" aria-label="agentic-tool output"></textarea>
+      </section>
+    </div>
+  </section>
+</main>
+
+<div id="modal-overlay" class="overlay hidden" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h3 id="modal-title"></h3>
+      <button id="modal-close" class="small" title="Close">✕</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<div id="open-overlay" class="overlay hidden" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="open-modal-title">
+    <div class="modal-head">
+      <h3 id="open-modal-title">Open config file</h3>
+      <button id="open-close" class="small" title="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Pick a .json config file. It is copied to a temp folder for editing; the original is never modified.</p>
+      <div class="browse-bar">
+        <button id="browse-up" class="small" title="Up one level">↑ Up</button>
+        <input id="browse-path" type="text" spellcheck="false" title="Directory to browse — press Enter to go">
+        <button id="browse-go" class="small">Go</button>
+      </div>
+      <div id="browse-error" class="modal-error hidden"></div>
+      <div id="browse-list" class="browse-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="conn-overlay" class="overlay hidden" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="conn-modal-title">
+    <div class="modal-head">
+      <h3 id="conn-modal-title">MCP Connectors</h3>
+      <button id="conn-close" class="small" title="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Start or stop the bundled MCP connector servers. Use + to add a connector to the current config.</p>
+      <div id="conn-error" class="modal-error hidden"></div>
+      <div id="conn-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="save-overlay" class="overlay hidden" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="save-modal-title">
+    <div class="modal-head">
+      <h3 id="save-modal-title">Save config</h3>
+      <button id="save-close" class="small" title="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Pick a folder below and click Save here, or Download to your browser's download folder.</p>
+      <label>File name <input id="save-name" type="text" spellcheck="false"></label>
+      <div class="browse-bar">
+        <button id="save-browse-up" class="small" title="Up one level">↑ Up</button>
+        <input id="save-browse-path" type="text" spellcheck="false" title="Folder to save into — press Enter to go">
+        <button id="save-browse-go" class="small">Go</button>
+      </div>
+      <div id="save-browse-error" class="modal-error hidden"></div>
+      <div id="save-browse-list" class="browse-list"></div>
+      <div class="modal-actions">
+        <button id="save-cancel">Cancel</button>
+        <button id="save-download">Download</button>
+        <button id="save-here" class="primary">Save here</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-overlay" class="overlay hidden" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="modal-head">
+      <h3 id="confirm-title">Confirm</h3>
+      <button id="confirm-close" class="small" title="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-message"></p>
+      <div class="modal-actions">
+        <button id="confirm-no">No</button>
+        <button id="confirm-yes" class="danger">Yes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/markdown-text-editor@1.9.0/dist/markdown-text-editor.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

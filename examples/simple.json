@@ -1,0 +1,25 @@
+{
+  "name": "my-run",
+  "version": "1.0",
+  "llm": {
+    "openAiCompatibleServerUrl": "http://192.168.1.2:8080/v1",
+    "model": "qwen3.8-flash-next-unsloth-ud-iq4_xs",
+    "api-key": "not-needed",
+    "systemMessage": "You are a helpfull assistant.",
+    "stream": true,
+    "maxToolResultLength": 120000,
+    "mcpTools": [
+      {
+        "name": "console_mcp",
+        "endpoint": "http://127.0.0.1:9999/mcp"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "name": "01_list_files",
+      "prompt": "Using the console tools list files located at ${HOME} and put them in a file named my-home-content-folder.txt within my ${HOME} directory.",
+      "tools": ["console_mcp"]
+    }
+  ]
+}
