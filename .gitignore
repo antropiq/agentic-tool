@@ -55,3 +55,4 @@ docs/_build/
 # poetry.lock
 # Pipfile.lock
 # uv.lock
+.python-version
