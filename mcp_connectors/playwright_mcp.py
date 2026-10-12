@@ -10,7 +10,9 @@ Usage:
 """
 
 import argparse
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from mcp.server import Server
 from mcp.server.transport_security import TransportSecuritySettings
@@ -23,6 +25,56 @@ from mcp.types import (
 )
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
+
+# ---------------------------------------------------------------------------
+# Restricted FQDN list (restricted-fqdn.txt next to this module)
+# ---------------------------------------------------------------------------
+
+RESTRICTED_FQDN_FILE = Path(__file__).resolve().parent / "restricted-fqdn.txt"
+
+
+def load_restricted_fqdns() -> list[str]:
+    """Read restricted FQDNs from the file (one per line, # comments allowed).
+
+    The file is re-read on every call so edits are picked up without restart.
+    A missing or unreadable file simply means no restrictions.
+    """
+    try:
+        lines = RESTRICTED_FQDN_FILE.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    entries = []
+    for line in lines:
+        entry = line.strip().lower().lstrip(".")
+        if entry and not entry.startswith("#"):
+            entries.append(entry)
+    return entries
+
+
+def is_restricted_url(url: str) -> bool:
+    """True when the URL's host is, or is a subdomain of, a restricted FQDN."""
+    restricted = load_restricted_fqdns()
+    if not restricted:
+        return False
+    try:
+        host = (urlparse(url).hostname or "").lower().rstrip(".")
+    except ValueError:
+        return False
+    if not host:
+        return False
+    return any(host == entry or host.endswith("." + entry) for entry in restricted)
+
+
+async def block_restricted_routes(route):
+    """Playwright route handler: drop requests to restricted FQDNs silently."""
+    try:
+        if is_restricted_url(route.request.url):
+            await route.abort()
+        else:
+            await route.continue_()
+    except Exception:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Browser state (singleton – one browser per server session)
@@ -56,8 +108,12 @@ async def get_page():
     if _page is None or _page.is_closed():
         browser = await get_browser()
         _page = await browser.new_page()
+        await _page.route("**/*", block_restricted_routes)
         # Set a shorter default timeout to prevent long hangs
-        await _page.set_default_timeout(10000)
+        # (sync in playwright >= 1.63, coroutine in older versions)
+        timeout_result = _page.set_default_timeout(10000)
+        if hasattr(timeout_result, "__await__"):
+            await timeout_result
     return _page
 
 
@@ -241,6 +297,10 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Dispatch a tool call."""
     try:
+        if name == "browser_navigate" and is_restricted_url(arguments.get("url", "")):
+            # Restricted FQDN: return an empty response, not an error.
+            return [TextContent(type="text", text="")]
+
         page = await get_page()
 
         if name == "browser_navigate":
