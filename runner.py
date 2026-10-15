@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from mcp import Client
 from openai import AsyncOpenAI
 
-from config import LlmConfig, McpToolConfig, TaskConfig
+from config import LlmConfig, McpToolConfig, SamplingConfig, TaskConfig
 
 DEFAULT_SYSTEM_MESSAGE = (
     "You are an autonomous research assistant. "
@@ -265,8 +265,14 @@ async def run_llm_loop(
     max_tool_result_length: int = 120_000,
     system_message: str | None = DEFAULT_SYSTEM_MESSAGE,
     stream: bool = True,
+    sampling: SamplingConfig | None = None,
 ) -> None:
-    """Run the LLM chat loop with tool-calling until a final response."""
+    """Run the LLM chat loop with tool-calling until a final response.
+
+    ``sampling`` parameters are forwarded to every chat completion call; the
+    non-standard ones (top_k, min_p, repeat_penalty) are sent via extra_body,
+    which llama.cpp-style OpenAI-compatible servers accept.
+    """
     messages: list[dict] = []
     if system_message is not None:
         messages.append({"role": "system", "content": system_message + COMPLETION_SENTINEL_DIRECTIVE})
@@ -283,6 +289,8 @@ async def run_llm_loop(
         }
         if openai_tools:
             kwargs["tools"] = openai_tools
+        if sampling is not None:
+            kwargs.update(sampling.to_kwargs())
 
         print(f"  LLM iteration {iteration + 1}/{max_iterations}")
 
@@ -449,4 +457,5 @@ async def run_task(
             max_tool_result_length=max_tool_result_length,
             system_message=system_message,
             stream=stream,
+            sampling=llm_config.sampling,
         )

@@ -2,6 +2,7 @@
 
 import os
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -42,6 +43,33 @@ class McpToolConfig(BaseModel):
     endpoint: str
 
 
+class SamplingConfig(BaseModel):
+    """Optional sampling parameters forwarded to the LLM call when set."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    temperature: float | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    min_p: float | None = None
+    repeat_penalty: float | None = None
+    presence_penalty: float | None = None
+    reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] | None = None
+
+    def to_kwargs(self) -> dict:
+        """Non-None sampling parameters as chat.completions kwargs.
+
+        OpenAI-compatible params are passed directly; the non-standard ones
+        (top_k, min_p, repeat_penalty) go through extra_body, which llama.cpp-
+        style servers accept in the request JSON.
+        """
+        params = self.model_dump(exclude_none=True)
+        extra_body = {k: params.pop(k) for k in ("top_k", "min_p", "repeat_penalty") if k in params}
+        if extra_body:
+            params["extra_body"] = extra_body
+        return params
+
+
 class LlmConfig(BaseModel):
     """LLM inference engine connection settings."""
 
@@ -54,6 +82,7 @@ class LlmConfig(BaseModel):
     mcpTools: list[McpToolConfig] = Field(default_factory=list)
     maxToolResultLength: int = 120_000
     stream: bool = True
+    sampling: SamplingConfig | None = None
 
 
 class TaskConfig(BaseModel):
