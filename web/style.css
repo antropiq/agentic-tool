@@ -26,9 +26,7 @@ body {
 }
 
 header {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow: auto;
+  flex: 0 0 auto;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   padding: 10px 16px;
@@ -163,6 +161,15 @@ textarea { resize: vertical; font-family: ui-monospace, monospace; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 980px) {
+  .grid3 { grid-template-columns: 1fr 1fr; }
 }
 
 .row2 {

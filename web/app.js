@@ -28,6 +28,32 @@ function newConfig() {
   });
 }
 
+const SAMPLING_NUMERIC_FIELDS = [
+  "temperature",
+  "top_p",
+  "top_k",
+  "min_p",
+  "repeat_penalty",
+  "presence_penalty",
+];
+const SAMPLING_FIELDS = [...SAMPLING_NUMERIC_FIELDS, "reasoning_effort"];
+const REASONING_EFFORTS = ["none", "low", "medium", "high", "xhigh"];
+
+function normalizeSampling(raw) {
+  const s = raw || {};
+  const out = {};
+  SAMPLING_FIELDS.forEach((k) => {
+    const v = s[k];
+    out[k] =
+      v === null || v === undefined || v === ""
+        ? null
+        : k === "reasoning_effort"
+          ? String(v)
+          : Number(v);
+  });
+  return out;
+}
+
 function normalizeConfig(raw) {
   const llm = raw.llm || {};
   return {
@@ -44,6 +70,7 @@ function normalizeConfig(raw) {
         name: t.name ?? "",
         endpoint: t.endpoint ?? "",
       })),
+      sampling: normalizeSampling(llm.sampling),
     },
     tasks: (raw.tasks || []).map((t) => ({
       name: t.name ?? "",
@@ -69,6 +96,14 @@ function serialize() {
     name: t.name,
     endpoint: t.endpoint,
   }));
+  const sampling = {};
+  SAMPLING_FIELDS.forEach((k) => {
+    const v = state.llm.sampling[k];
+    if (v !== null && v !== "" && !(typeof v === "number" && Number.isNaN(v))) {
+      sampling[k] = v;
+    }
+  });
+  if (Object.keys(sampling).length) llm.sampling = sampling;
   out.llm = llm;
   out.tasks = state.tasks.map((t) => ({
     name: t.name,
@@ -95,6 +130,14 @@ function validate() {
   if (!state.llm.openAiCompatibleServerUrl.trim())
     errors.push("LLM server URL is required.");
   if (!state.llm.model.trim()) errors.push("LLM model is required.");
+  SAMPLING_NUMERIC_FIELDS.forEach((k) => {
+    const v = state.llm.sampling[k];
+    if (v !== null && Number.isNaN(v)) errors.push(`Sampling "${k}" must be a number.`);
+  });
+  const effort = state.llm.sampling.reasoning_effort;
+  if (effort !== null && !REASONING_EFFORTS.includes(effort)) {
+    errors.push(`Sampling "reasoning_effort" must be one of: ${REASONING_EFFORTS.join(", ")}.`);
+  }
   const names = [];
   state.llm.mcpTools.forEach((t, i) => {
     if (!t.name.trim()) errors.push(`MCP server #${i + 1}: name is required.`);
@@ -146,6 +189,15 @@ function bindSimple() {
   bind("#f-system", (el) => (state.llm.systemMessage = el.value));
   bind("#f-stream", (el) => (state.llm.stream = el.checked));
   bind("#f-maxlen", (el) => (state.llm.maxToolResultLength = Number(el.value) || 120000));
+  SAMPLING_NUMERIC_FIELDS.forEach((k) => {
+    bind("#f-sampling-" + k, (el) => {
+      const raw = el.value.trim();
+      state.llm.sampling[k] = raw === "" ? null : Number(raw);
+    });
+  });
+  bind("#f-sampling-reasoning_effort", (el) => {
+    state.llm.sampling.reasoning_effort = el.value === "" ? null : el.value;
+  });
 }
 
 function fillSimple() {
@@ -157,6 +209,11 @@ function fillSimple() {
   $("#f-system").value = state.llm.systemMessage;
   $("#f-stream").checked = state.llm.stream;
   $("#f-maxlen").value = state.llm.maxToolResultLength;
+  SAMPLING_FIELDS.forEach((k) => {
+    const v = state.llm.sampling[k];
+    const el = $("#f-sampling-" + k);
+    if (el) el.value = v === null ? "" : String(v);
+  });
 }
 
 function kv(labelText, valueText) {

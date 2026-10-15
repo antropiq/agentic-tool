@@ -40,6 +40,11 @@ python agentic-tool.py --file <config.json>
     "systemMessage": "string", // optional system prompt
     "stream": true,            // optional, default true
     "maxToolResultLength": 120000,  // optional, truncates large tool outputs
+    "sampling": {                   // optional; omitted fields are not sent
+      "temperature": 0.7, "top_p": 0.95, "top_k": 40, "min_p": 0.05,
+      "repeat_penalty": 1.1, "presence_penalty": 0.0,
+      "reasoning_effort": "low"     // none|low|medium|high|xhigh
+    },
     "mcpTools": [              // available MCP servers
       { "name": "string", "endpoint": "http://.../mcp" }
     ]
